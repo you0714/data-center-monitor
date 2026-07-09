@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据中心运行监控大屏</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0c1445 0%, #1a1f3a 100%);
+            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        /* 头部标题 */
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            color: #00d4ff;
+            font-size: 28px;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            color: #6b7b8a;
+            font-size: 14px;
+        }
+        
+        /* 卡片样式 */
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(0, 212, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .card-title {
+            color: #00d4ff;
+            font-size: 16px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .card-title::before {
+            content: '';
+            width: 4px;
+            height: 16px;
+            background: linear-gradient(180deg, #00d4ff, #0088ff);
+            border-radius: 2px;
+            margin-right: 10px;
+        }
+        
+        /* 统计卡片 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.1) 0%, rgba(0, 136, 255, 0.05) 100%);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #00d4ff;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #8fa3b8;
+        }
+        
+        /* 图表容器 */
+        .chart-container {
+            width: 100%;
+            height: 300px;
+        }
+        
+        .chart-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 22px;
+            }
+            
+            .stat-value {
+                font-size: 26px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .chart-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-container {
+                height: 250px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stat-value {
+                font-size: 22px;
+            }
+        }
+        
+        /* 加载动画 */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+            color: #00d4ff;
+        }
+        
+        .loading::after {
+            content: '';
+            width: 20px;
+            height: 20px;
+            border: 2px solid #00d4ff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部标题 -->
+        <div class="header">
+            <h1>数据中心运行监控大屏</h1>
+            <p>实时监控 · 智能分析 · 可视化展示</p>
+        </div>
+        
+        <!-- 统计卡片 -->
+        <div class="stats-grid" id="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="stat-hosts">--</div>
+                <div class="stat-label">主机数量</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-metrics">--</div>
+                <div class="stat-label">指标总数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-util">--%</div>
+                <div class="stat-label">平均使用率</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-latency">--ms</div>
+                <div class="stat-label">平均延迟</div>
+            </div>
+        </div>
+        
+        <!-- 图表区域 -->
+        <div class="card">
+            <div class="card-title">磁盘使用率TOP10</div>
+            <div class="chart-container" id="chart-top10"></div>
+        </div>
+        
+        <div class="chart-row">
+            <div class="card">
+                <div class="card-title">磁盘延迟趋势</div>
+                <div class="chart-container" id="chart-latency"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">读写扇区占比</div>
+                <div class="chart-container" id="chart-rw"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 基础配置
+        //const API_BASE = 'http://localhost:5000/api';
+        const API_BASE = '/api';
+       
+        
+        // 初始化图表
+        let chartTop10 = echarts.init(document.getElementById('chart-top10'));
+        let chartLatency = echarts.init(document.getElementById('chart-latency'));
+        let chartRW = echarts.init(document.getElementById('chart-rw'));
+        
+        // 更新统计卡片
+        function updateStats(data) {
+            document.getElementById('stat-hosts').textContent = data.host_count;
+            document.getElementById('stat-metrics').textContent = data.metric_count.toLocaleString();
+            document.getElementById('stat-util').textContent = data.avg_util + '%';
+            document.getElementById('stat-latency').textContent = data.avg_latency + 'ms';
+        }
+        
+        // 更新磁盘使用率TOP10图表
+        function updateTop10Chart(data) {
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: data.map(item => item.host_id + '-' + item.mod),
+                    axisLabel: {
+                        color: '#8fa3b8',
+                        rotate: 45,
+                        fontSize: 11
+                    },
+                    axisLine: { lineStyle: { color: 'rgba(0,212,255,0.2)' } }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '使用率(%)',
+                    nameTextStyle: { color: '#8fa3b8' },
+                    axisLabel: { color: '#8fa3b8' },
+                    axisLine: { lineStyle: { color: 'rgba(0,212,255,0.2)' } },
+                    splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }
+                },
+                series: [{
+                    type: 'bar',
+                    data: data.map(item => ({
+                        value: item.value,
+                        itemStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: '#00d4ff' },
+                                { offset: 1, color: '#0088ff' }
+                            ]),
+                            borderRadius: [4, 4, 0, 0]
+                        }
+                    })),
+                    barWidth: '60%'
+                }]
+            };
+            chartTop10.setOption(option);
+        }
+        
+        // 更新延迟趋势图表
+        function updateLatencyChart(data) {
+            const times = data.map(item => item.time).reverse();
+            const awaitData = data.map(item => item.avg_await || 0).reverse();
+            const svctmData = data.map(item => item.avg_svctm || 0).reverse();
+            
+            const option = {
+                tooltip: { trigger: 'axis' },
+                legend: {
+                    data: ['平均等待时间', '平均服务时间'],
+                    textStyle: { color: '#8fa3b8' }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: times,
+                    axisLabel: {
+                        color: '#8fa3b8',
+                        fontSize: 10,
+                        rotate: 45
+                    },
+                    axisLine: { lineStyle: { color: 'rgba(0,212,255,0.2)' } }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '延迟(ms)',
+                    nameTextStyle: { color: '#8fa3b8' },
+                    axisLabel: { color: '#8fa3b8' },
+                    axisLine: { lineStyle: { color: 'rgba(0,212,255,0.2)' } },
+                    splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }
+                },
+                series: [
+                    {
+                        name: '平均等待时间',
+                        type: 'line',
+                        data: awaitData,
+                        smooth: true,
+                        lineStyle: { color: '#00d4ff', width: 2 },
+                        itemStyle: { color: '#00d4ff' },
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: 'rgba(0,212,255,0.3)' },
+                                { offset: 1, color: 'rgba(0,212,255,0.05)' }
+                            ])
+                        }
+                    },
+                    {
+                        name: '平均服务时间',
+                        type: 'line',
+                        data: svctmData,
+                        smooth: true,
+                        lineStyle: { color: '#ff6b6b', width: 2 },
+                        itemStyle: { color: '#ff6b6b' },
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: 'rgba(255,107,107,0.2)' },
+                                { offset: 1, color: 'rgba(255,107,107,0.05)' }
+                            ])
+                        }
+                    }
+                ]
+            };
+            chartLatency.setOption(option);
+        }
+        
+                // 更新读写占比图表
+        function updateRWChart(data) {
+            // 强制把字符串数值转为数字再累加
+            const totalRead = data.reduce((sum, item) => sum + Number(item.read_total || 0), 0);
+            const totalWrite = data.reduce((sum, item) => sum + Number(item.write_total || 0), 0);
+            
+            const option = {
+                tooltip: {
+                    trigger: 'item',
+                    formatter: '{b}: {c} ({d}%)'
+                },
+                legend: {
+                    orient: 'horizontal',
+                    bottom: 0,
+                    textStyle: { color: '#8fa3b8' }
+                },
+                series: [{
+                    type: 'pie',
+                    radius: ['40%', '70%'],
+                    avoidLabelOverlap: false,
+                    itemStyle: {
+                        borderRadius: 10,
+                        borderColor: 'rgba(0,212,255,0.2)',
+                        borderWidth: 2
+                    },
+                    label: {
+                        show: true,
+                        color: '#8fa3b8',
+                        formatter: '{b}\n{d}%'
+                    },
+                    labelLine: {
+                        lineStyle: { color: 'rgba(0,212,255,0.3)' }
+                    },
+                    data: [
+                        {
+                            value: totalRead,
+                            name: '读扇区',
+                            itemStyle: { color: '#00d4ff' }
+                        },
+                        {
+                            value: totalWrite,
+                            name: '写扇区',
+                            itemStyle: { color: '#00ff88' }
+                        }
+                    ]
+                }]
+            };
+            chartRW.setOption(option);
+        }
+        // 获取数据并更新图表
+        async function fetchData() {
+            try {
+                // 获取汇总统计
+                const summaryRes = await fetch(`${API_BASE}/disk/summary`);
+                const summaryData = await summaryRes.json();
+                if (summaryData.code === 200) {
+                    updateStats(summaryData.data);
+                }
+                
+                // 获取磁盘使用率TOP10
+                const top10Res = await fetch(`${API_BASE}/disk/top10`);
+                const top10Data = await top10Res.json();
+                if (top10Data.code === 200) {
+                    updateTop10Chart(top10Data.data);
+                }
+                
+                // 获取延迟趋势
+                const latencyRes = await fetch(`${API_BASE}/disk/latency_trend`);
+                const latencyData = await latencyRes.json();
+                if (latencyData.code === 200) {
+                    updateLatencyChart(latencyData.data);
+                }
+                
+                // 获取读写总量
+                const rwRes = await fetch(`${API_BASE}/disk/rw_total`);
+                const rwData = await rwRes.json();
+                if (rwData.code === 200) {
+                    updateRWChart(rwData.data);
+                }
+                
+            } catch (error) {
+                console.error('获取数据失败:', error);
+            }
+        }
+        
+        // 响应式调整
+        function handleResize() {
+            chartTop10.resize();
+            chartLatency.resize();
+            chartRW.resize();
+        }
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchData();
+            window.addEventListener('resize', handleResize);
+            
+            // 定时刷新
+            setInterval(fetchData, 30000); // 每30秒刷新一次
+        });
+    </script>
+</body>
+</html>
