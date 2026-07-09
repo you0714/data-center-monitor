@@ -2,7 +2,7 @@
 
 ## 项目概述
 <p align="center">
-<img src="./assets/dashboard_full.png" width="1300" alt="数据中心监控大屏完整界面">
+<img src="./assets/dashboard_full.jpg" width="1300" alt="数据中心监控大屏完整界面">
 </p>
 本项目基于 disk_tsar.dat 明细数据，实现数据中心运行监控大屏，包含以下组件：
 
