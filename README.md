@@ -1,7 +1,9 @@
 # 数据中心运行监控大屏
 
 ## 项目概述
-
+<p align="center">
+<img src="./assets/dashboard_full.png" width="1300" alt="数据中心监控大屏完整界面">
+</p>
 本项目基于 disk_tsar.dat 明细数据，实现数据中心运行监控大屏，包含以下组件：
 
 1. **ETL脚本** - 读取日志、清洗数据、转换时间戳、批量写入MySQL
